@@ -3,45 +3,38 @@ package com.example.gymprogresstracker
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.activity.viewModels
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import com.example.gymprogresstracker.data.db.DatabaseProvider
+import com.example.gymprogresstracker.data.repository.WorkoutRepository
+import com.example.gymprogresstracker.ui.screens.WorkoutListScreen
 import com.example.gymprogresstracker.ui.theme.GymProgressTrackerTheme
+import com.example.gymprogresstracker.ui.viewmodel.WorkoutViewModel
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        setContent {
-            GymProgressTrackerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+
+        // Initialize database and repository
+        val database = DatabaseProvider.getDatabase(applicationContext)
+        val repository = WorkoutRepository(database.workoutDao())
+
+        // Create a ViewModel using a factory
+        val viewModel by viewModels<WorkoutViewModel> {
+            object : ViewModelProvider.Factory {
+                override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                    @Suppress("UNCHECKED_CAST")
+                    return WorkoutViewModel(repository) as T
                 }
             }
         }
-    }
-}
 
-@Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun GreetingPreview() {
-    GymProgressTrackerTheme {
-        Greeting("Android")
+        setContent {
+            GymProgressTrackerTheme {
+                WorkoutListScreen(viewModel = viewModel)
+            }
+        }
     }
 }
