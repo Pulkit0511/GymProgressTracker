@@ -21,18 +21,37 @@ import java.util.*
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.Alignment
-
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.composed
+import androidx.compose.animation.Crossfade
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun WorkoutListScreen(viewModel: WorkoutViewModel) {
     val workouts by viewModel.workouts.collectAsState()
+    val sheetState = rememberModalBottomSheetState()
+    var isSheetOpen by remember { mutableStateOf(false) }
+    val dimAlpha by animateFloatAsState(
+        targetValue = if (isSheetOpen) 0.4f else 0f,
+        label = "Dim Background Animation"
+    )
 
     var exerciseName by remember { mutableStateOf(TextFieldValue("")) }
     var sets by remember { mutableStateOf(TextFieldValue("")) }
     var reps by remember { mutableStateOf(TextFieldValue("")) }
     var weight by remember { mutableStateOf(TextFieldValue("")) }
+    val rotation by animateFloatAsState(
+        targetValue = if (isSheetOpen) 45f else 0f, // rotates slightly for fun
+        label = "FAB Rotation"
+    )
 
     Scaffold(
         topBar = {
@@ -42,25 +61,6 @@ fun WorkoutListScreen(viewModel: WorkoutViewModel) {
                     containerColor = MaterialTheme.colorScheme.primaryContainer
                 )
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = {
-                if (exerciseName.text.isNotBlank()) {
-                    val workout = Workout(
-                        exerciseName = exerciseName.text,
-                        sets = sets.text.toIntOrNull() ?: 0,
-                        reps = reps.text.toIntOrNull() ?: 0,
-                        weight = weight.text.toFloatOrNull() ?: 0f
-                    )
-                    viewModel.addWorkout(workout)
-                    exerciseName = TextFieldValue("")
-                    sets = TextFieldValue("")
-                    reps = TextFieldValue("")
-                    weight = TextFieldValue("")
-                }
-            }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Workout")
-            }
         }
     ) { paddingValues ->
         Column(
@@ -69,43 +69,6 @@ fun WorkoutListScreen(viewModel: WorkoutViewModel) {
                 .padding(16.dp)
                 .padding(paddingValues)
         ) {
-
-            // Input section
-            Text("Add New Workout", style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(8.dp))
-
-            TextField(
-                value = exerciseName,
-                onValueChange = { exerciseName = it },
-                label = { Text("Exercise Name") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(Modifier.height(8.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextField(
-                    value = sets,
-                    onValueChange = { sets = it },
-                    label = { Text("Sets") },
-                    modifier = Modifier.weight(1f)
-                )
-                TextField(
-                    value = reps,
-                    onValueChange = { reps = it },
-                    label = { Text("Reps") },
-                    modifier = Modifier.weight(1f)
-                )
-                TextField(
-                    value = weight,
-                    onValueChange = { weight = it },
-                    label = { Text("Weight (kg)") },
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Spacer(Modifier.height(16.dp))
             HorizontalDivider(Modifier, DividerDefaults.Thickness, DividerDefaults.color)
             Spacer(Modifier.height(16.dp))
 
@@ -114,11 +77,124 @@ fun WorkoutListScreen(viewModel: WorkoutViewModel) {
             Spacer(Modifier.height(8.dp))
 
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(workouts) { workout ->
                     WorkoutCard(workout = workout, onDelete = { viewModel.deleteWorkout(workout) })
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            FloatingActionButton(
+                onClick = { isSheetOpen = !isSheetOpen },
+                containerColor = MaterialTheme.colorScheme.primary,
+                modifier = Modifier
+                    .padding(24.dp)
+                    .graphicsLayer {
+                        rotationZ = rotation
+                    }
+            ) {
+                Crossfade(targetState = isSheetOpen, label = "FAB Icon Crossfade") { open ->
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription =
+                            if(open)
+                                "Close"
+                            else
+                                "Add Workout",
+                        tint = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
+        }
+
+        if (dimAlpha > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer { alpha = dimAlpha }
+                    .background(Color.Black)
+                    .noRippleClickable { isSheetOpen = false } // close sheet when tapping outside
+            )
+        }
+
+        if (isSheetOpen) {
+            ModalBottomSheet(
+                onDismissRequest = { isSheetOpen = false },
+                sheetState = sheetState,
+                dragHandle = { BottomSheetDefaults.DragHandle() },
+                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+                containerColor = MaterialTheme.colorScheme.surface
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                ) {
+                    Text(
+                        "Add New Workout",
+                        style = MaterialTheme.typography.titleLarge
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    TextField(
+                        value = exerciseName,
+                        onValueChange = { exerciseName = it },
+                        label = { Text("Exercise Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TextField(
+                            value = sets,
+                            onValueChange = { sets = it },
+                            label = { Text("Sets") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextField(
+                            value = reps,
+                            onValueChange = { reps = it },
+                            label = { Text("Reps") },
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextField(
+                            value = weight,
+                            onValueChange = { weight = it },
+                            label = { Text("Weight (kg)") },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                    Button(
+                        onClick = {
+                            if (exerciseName.text.isNotBlank()) {
+                                val workout = Workout(
+                                    exerciseName = exerciseName.text,
+                                    sets = sets.text.toIntOrNull() ?: 0,
+                                    reps = reps.text.toIntOrNull() ?: 0,
+                                    weight = weight.text.toFloatOrNull() ?: 0f
+                                )
+                                viewModel.addWorkout(workout)
+                                exerciseName = TextFieldValue("")
+                                sets = TextFieldValue("")
+                                reps = TextFieldValue("")
+                                weight = TextFieldValue("")
+                                isSheetOpen = false
+                            }
+                        },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Add Workout")
+                    }
                 }
             }
         }
@@ -155,5 +231,13 @@ fun WorkoutCard(workout: Workout, onDelete: () -> Unit) {
             }
 
         }
+    }
+}
+fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = composed {
+    this.clickable(
+        indication = null,
+        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    ) {
+        onClick()
     }
 }
