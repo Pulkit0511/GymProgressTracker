@@ -19,4 +19,8 @@ class WorkoutRepository(private val workoutDao: WorkoutDao) {
     suspend fun clearAll() {
         workoutDao.clearAll()
     }
+
+    suspend fun updateWorkout(workout: Workout) {
+        workoutDao.update(workout)
+    }
 }

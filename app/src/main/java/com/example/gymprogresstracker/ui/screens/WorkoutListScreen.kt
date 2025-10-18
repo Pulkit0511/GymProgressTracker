@@ -1,6 +1,8 @@
 package com.example.gymprogresstracker.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
@@ -20,49 +22,47 @@ import java.text.DateFormat
 import java.util.*
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.ui.Alignment
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.clickable
-import androidx.compose.ui.composed
-import androidx.compose.animation.Crossfade
+import androidx.navigation.NavController
 
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WorkoutListScreen(viewModel: WorkoutViewModel) {
+fun WorkoutListScreen(viewModel: WorkoutViewModel, navController: NavController) {
     val workouts by viewModel.workouts.collectAsState()
     val sheetState = rememberModalBottomSheetState()
     var isSheetOpen by remember { mutableStateOf(false) }
-    val dimAlpha by animateFloatAsState(
-        targetValue = if (isSheetOpen) 0.4f else 0f,
-        label = "Dim Background Animation"
-    )
-
+    var workoutToEdit by remember { mutableStateOf<Workout?>(null) }
     var exerciseName by remember { mutableStateOf(TextFieldValue("")) }
     var sets by remember { mutableStateOf(TextFieldValue("")) }
     var reps by remember { mutableStateOf(TextFieldValue("")) }
     var weight by remember { mutableStateOf(TextFieldValue("")) }
-    val rotation by animateFloatAsState(
-        targetValue = if (isSheetOpen) 45f else 0f, // rotates slightly for fun
-        label = "FAB Rotation"
-    )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Gym Progress Tracker 💪") },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
+    Scaffold(topBar = {
+        TopAppBar(
+            title = { Text("Gym Progress Tracker 💪") },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primaryContainer
             )
+        )
+    }, floatingActionButton = {
+        FloatingActionButton(
+            onClick = {
+                workoutToEdit = null
+                exerciseName = TextFieldValue("")
+                sets = TextFieldValue("")
+                reps = TextFieldValue("")
+                weight = TextFieldValue("")
+                isSheetOpen = true
+            }, containerColor = MaterialTheme.colorScheme.primary
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Add Workout")
         }
-    ) { paddingValues ->
+    }) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -83,46 +83,21 @@ fun WorkoutListScreen(viewModel: WorkoutViewModel) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(workouts) { workout ->
-                    WorkoutCard(workout = workout, onDelete = { viewModel.deleteWorkout(workout) })
+                    WorkoutCard(
+                        workout = workout,
+                        onDelete = { viewModel.deleteWorkout(workout) },
+                        onEdit = {
+                            workoutToEdit = workout
+                            exerciseName = TextFieldValue(workout.exerciseName)
+                            sets = TextFieldValue(workout.sets.toString())
+                            reps = TextFieldValue(workout.reps.toString())
+                            weight = TextFieldValue(workout.weight.toString())
+                            isSheetOpen = true
+                        },
+                        onClick = { navController.navigate("workoutDetails/${workout.id}") })
+
                 }
             }
-        }
-
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.BottomEnd
-        ) {
-            FloatingActionButton(
-                onClick = { isSheetOpen = !isSheetOpen },
-                containerColor = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .padding(24.dp)
-                    .graphicsLayer {
-                        rotationZ = rotation
-                    }
-            ) {
-                Crossfade(targetState = isSheetOpen, label = "FAB Icon Crossfade") { open ->
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription =
-                            if(open)
-                                "Close"
-                            else
-                                "Add Workout",
-                        tint = MaterialTheme.colorScheme.onPrimary
-                    )
-                }
-            }
-        }
-
-        if (dimAlpha > 0f) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer { alpha = dimAlpha }
-                    .background(Color.Black)
-                    .noRippleClickable { isSheetOpen = false } // close sheet when tapping outside
-            )
         }
 
         if (isSheetOpen) {
@@ -138,10 +113,15 @@ fun WorkoutListScreen(viewModel: WorkoutViewModel) {
                         .fillMaxWidth()
                         .padding(24.dp)
                 ) {
-                    Text(
-                        "Add New Workout",
-                        style = MaterialTheme.typography.titleLarge
-                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Add New Workout", style = MaterialTheme.typography.titleLarge)
+                    }
                     Spacer(Modifier.height(12.dp))
 
                     TextField(
@@ -174,27 +154,51 @@ fun WorkoutListScreen(viewModel: WorkoutViewModel) {
                     }
 
                     Spacer(Modifier.height(24.dp))
-                    Button(
-                        onClick = {
-                            if (exerciseName.text.isNotBlank()) {
-                                val workout = Workout(
-                                    exerciseName = exerciseName.text,
-                                    sets = sets.text.toIntOrNull() ?: 0,
-                                    reps = reps.text.toIntOrNull() ?: 0,
-                                    weight = weight.text.toFloatOrNull() ?: 0f
-                                )
-                                viewModel.addWorkout(workout)
-                                exerciseName = TextFieldValue("")
-                                sets = TextFieldValue("")
-                                reps = TextFieldValue("")
-                                weight = TextFieldValue("")
-                                isSheetOpen = false
-                            }
-                        },
-                        modifier = Modifier.align(Alignment.End)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Add Workout")
+                        OutlinedButton(onClick = { isSheetOpen = false }) {
+                            Text("Cancel")
+                        }
+
+                        Spacer(modifier = Modifier.width(12.dp))
+
+                        Button(
+                            onClick = {
+                                if (exerciseName.text.isNotBlank()) {
+                                    val updatedWorkout = workoutToEdit?.copy(
+                                        exerciseName = exerciseName.text,
+                                        sets = sets.text.toIntOrNull() ?: 0,
+                                        reps = reps.text.toIntOrNull() ?: 0,
+                                        weight = weight.text.toFloatOrNull() ?: 0f
+                                    ) ?: Workout(
+                                        exerciseName = exerciseName.text,
+                                        sets = sets.text.toIntOrNull() ?: 0,
+                                        reps = reps.text.toIntOrNull() ?: 0,
+                                        weight = weight.text.toFloatOrNull() ?: 0f
+                                    )
+
+                                    if (workoutToEdit != null) {
+                                        viewModel.updateWorkout(updatedWorkout)
+                                    } else {
+                                        viewModel.addWorkout(updatedWorkout)
+                                    }
+
+                                    // Reset fields
+                                    exerciseName = TextFieldValue("")
+                                    sets = TextFieldValue("")
+                                    reps = TextFieldValue("")
+                                    weight = TextFieldValue("")
+                                    workoutToEdit = null
+                                    isSheetOpen = false
+                                }
+                            }) {
+                            Text("Add Workout")
+                        }
                     }
+
                 }
             }
         }
@@ -202,9 +206,14 @@ fun WorkoutListScreen(viewModel: WorkoutViewModel) {
 }
 
 @Composable
-fun WorkoutCard(workout: Workout, onDelete: () -> Unit) {
+fun WorkoutCard(
+    workout: Workout, onDelete: () -> Unit, onEdit: () -> Unit, onClick: () -> Unit
+) {
     Card(
-        modifier = Modifier.fillMaxWidth().shadow(2.dp, RoundedCornerShape(12.dp)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(12.dp))
+            .clickable { onClick() },
         elevation = CardDefaults.cardElevation(4.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant
@@ -213,14 +222,24 @@ fun WorkoutCard(workout: Workout, onDelete: () -> Unit) {
         Column(Modifier.padding(12.dp)) {
             Text(workout.exerciseName, style = MaterialTheme.typography.titleMedium)
             Text("Sets: ${workout.sets}, Reps: ${workout.reps}, Weight: ${workout.weight} kg")
-            Text("Date: ${DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault()).format(workout.date)}")
-
+            Text(
+                "Date: ${
+                    DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.getDefault())
+                        .format(workout.date)
+                }"
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(workout.exerciseName, style = MaterialTheme.typography.titleMedium)
+                IconButton(onClick = onEdit) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Edit Workout",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
                 IconButton(onClick = onDelete) {
                     Icon(
                         imageVector = Icons.Default.Delete,
@@ -229,15 +248,6 @@ fun WorkoutCard(workout: Workout, onDelete: () -> Unit) {
                     )
                 }
             }
-
         }
-    }
-}
-fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier = composed {
-    this.clickable(
-        indication = null,
-        interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-    ) {
-        onClick()
     }
 }

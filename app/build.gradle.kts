@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("com.google.devtools.ksp") version "2.2.10-2.0.2"
+    id("com.google.devtools.ksp") version "2.2.20-2.0.4"
 }
 
 android {
@@ -42,6 +42,10 @@ android {
 }
 
 dependencies {
+    implementation(libs.accompanist.navigation.animation)
+    implementation(libs.androidx.navigation.compose.v280)
+    implementation(libs.androidx.compose.animation)
+    implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)

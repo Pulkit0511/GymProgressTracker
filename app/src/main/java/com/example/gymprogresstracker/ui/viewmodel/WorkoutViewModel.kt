@@ -45,4 +45,10 @@ class WorkoutViewModel(
             repository.clearAll()
         }
     }
+
+    fun updateWorkout(workout: Workout) {
+        viewModelScope.launch {
+            repository.updateWorkout(workout)
+        }
+    }
 }

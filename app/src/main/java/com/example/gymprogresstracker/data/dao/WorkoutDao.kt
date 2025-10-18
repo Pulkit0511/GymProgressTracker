@@ -17,4 +17,7 @@ interface WorkoutDao {
 
     @Query("DELETE FROM workouts")
     suspend fun clearAll()
+
+    @Update
+    suspend fun update(workout: Workout)
 }
